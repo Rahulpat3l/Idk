@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Stock Management — Free</title>
+<style>
+:root{--bg:#f4f6fb;--card:#ffffff;--muted:#6b7280;--accent:#0b5ed7}
+body{font-family:Inter,system-ui,Segoe UI,Roboto,Arial;margin:0;background:var(--bg);color:#111}
+.header{background:linear-gradient(90deg,#0b5ed7 0%,#6c8ef5 100%);color:white;padding:18px 20px}
+.container{max-width:980px;margin:20px auto;padding:18px}
+.card{background:var(--card);padding:16px;border-radius:10px;box-shadow:0 6px 18px rgba(16,24,40,0.06)}
+.row{display:flex;gap:12px;flex-wrap:wrap}
+.input{flex:1;min-width:180px}
+label{display:block;font-size:13px;margin-bottom:6px;color:var(--muted)}
+input,select,button{width:100%;padding:10px;border:1px solid #e6e9ef;border-radius:8px;font-size:14px}
+.small{width:120px}
+.actions{display:flex;gap:10px;align-items:center}
+.button-primary{background:var(--accent);color:white;border:none;cursor:pointer}
+.button-ghost{background:transparent;border:1px solid #e6e9ef}
+.table{width:100%;border-collapse:collapse;margin-top:12px}
+.table th,.table td{padding:10px;border-bottom:1px solid #f0f2f5;text-align:left;font-size:14px}
+.table th{background:#fbfcff}
+.footer{margin-top:14px;color:var(--muted);font-size:13px}
+@media (max-width:720px){.row{flex-direction:column}.actions{flex-direction:column;align-items:stretch}.small{width:100%}}
+</style>
+</head>
+<body>
+<div class="header">
+  <div style="max-width:980px;margin:0 auto">
+    <h1 style="margin:0;font-size:20px">Stock Management Portal</h1>
+    <div style="opacity:0.9;margin-top:6px">Add / Remove stock • Auto current-stock calculation • Export / Import • Free to host</div>
+  </div>
+</div>
+
+<div class="container">
+  <div class="card">
+    <h3 style="margin-top:0">Add Stock Entry</h3>
+    <div class="row">
+      <div class="input">
+        <label>Code Number (manual)</label>
+        <input id="code" placeholder="e.g. A100" />
+      </div>
+      <div class="input">
+        <label>Item Name</label>
+        <input id="item" placeholder="e.g. Whey Protein" />
+      </div>
+      <div class="input small">
+        <label>Date</label>
+        <input id="date" type="date" />
+      </div>
+      <div class="input small">
+        <label>Quantity</label>
+        <input id="qty" type="number" min="1" value="1" />
+      </div>
+      <div class="input small">
+        <label>Type</label>
+        <select id="type">
+          <option value="Add">Add</option>
+          <option value="Remove">Remove</option>
+        </select>
+      </div>
+      <div class="actions" style="align-self:flex-end">
+        <button class="button-primary" id="addBtn">Add Entry</button>
+        <button class="button-ghost" id="clearBtn">Clear Fields</button>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
+      <button id="exportCsv" class="button-ghost">Export CSV</button>
+      <label style="display:inline-block" class="button-ghost">
+        Import CSV
+        <input id="importFile" type="file" accept=".csv" style="display:none" />
+      </label>
+      <button id="resetAll" class="button-ghost">Reset All Data</button>
+    </div>
+
+    <div style="margin-top:18px">
+      <h4 style="margin:6px 0">Entries</h4>
+      <table class="table" id="entriesTable">
+        <thead><tr><th>Code</th><th>Item</th><th>Date</th><th>Qty</th><th>Type</th><th>Actions</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div style="margin-top:18px">
+      <h4 style="margin:6px 0">Current Stock (by Code)</h4>
+      <table class="table" id="stockTable">
+        <thead><tr><th>Code</th><th>Item</th><th>Current Stock</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+
+    <div class="footer">Data stored locally in your browser. To make it online for multiple users, host files on GitHub Pages (free) — steps below.</div>
+  </div>
+
+  <div style="margin-top:16px" class="card">
+    <h3 style="margin-top:0">How to go live (Free) — GitHub Pages</h3>
+    <ol>
+      <li>Create a GitHub account if you don't have one.</li>
+      <li>Create a new repository (name can be anything). Upload this file as <code>index.html</code>.</li>
+      <li>Go to Settings → Pages and set Source to <code>main</code> branch (root). Save. Your site will be live at <code>https://&lt;username&gt;.github.io/&lt;repo-name&gt;/</code>. citeturn0search1turn0search4</li>
+    </ol>
+    <div class="footer">If you want a centralized database (Google Sheets, Firebase) tell me — I can add it. For now this is a complete offline-capable static site you can host free.</div>
+  </div>
+</div>
+
+<script>
+// Simple stock manager using localStorage
+const STORAGE_KEY = 'stock_entries_v1';
+
+function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+function loadEntries(){
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
+  } catch(e){
+    return [];
+  }
+}
+function saveEntries(arr){ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+
+function render(){
+  const entries = loadEntries();
+  const tbody = document.querySelector('#entriesTable tbody');
+  tbody.innerHTML = '';
+  entries.slice().reverse().forEach(e=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(e.code)}</td>
+                    <td>${escapeHtml(e.item)}</td>
+                    <td>${escapeHtml(e.date)}</td>
+                    <td>${e.qty}</td>
+                    <td>${e.type}</td>
+                    <td><button data-id="${e.id}" class="del">Delete</button></td>`;
+    tbody.appendChild(tr);
+  });
+
+  // compute stock per code
+  const stockMap = {};
+  for(const e of entries){
+    const key = e.code || ('__' + e.item || '');
+    if(!stockMap[key]) stockMap[key] = {code: e.code, item: e.item, qty: 0};
+    stockMap[key].qty += (e.type === 'Add') ? Number(e.qty) : -Number(e.qty);
+  }
+  const stockTbody = document.querySelector('#stockTable tbody');
+  stockTbody.innerHTML = '';
+  Object.values(stockMap).forEach(s=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${escapeHtml(s.code)}</td><td>${escapeHtml(s.item)}</td><td>${s.qty}</td>`;
+    stockTbody.appendChild(tr);
+  });
+
+  // attach delete handlers
+  document.querySelectorAll('.del').forEach(btn=>{
+    btn.onclick = ()=>{
+      const id = btn.getAttribute('data-id');
+      const filtered = entries.filter(x=>x.id!==id);
+      saveEntries(filtered);
+      render();
+    };
+  });
+}
+
+function escapeHtml(str){
+  if(!str) return '';
+  return String(str).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+}
+
+document.getElementById('addBtn').addEventListener('click', ()=>{
+  const code = document.getElementById('code').value.trim();
+  const item = document.getElementById('item').value.trim();
+  const date = document.getElementById('date').value || new Date().toISOString().slice(0,10);
+  const qty = Number(document.getElementById('qty').value) || 0;
+  const type = document.getElementById('type').value;
+  if(!code || !item || qty<=0){ alert('Please fill Code, Item and a positive Quantity'); return; }
+  const entries = loadEntries();
+  entries.push({id: uid(), code, item, date, qty, type});
+  saveEntries(entries);
+  document.getElementById('code').value=''; document.getElementById('item').value=''; document.getElementById('qty').value=1;
+  render();
+});
+
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  document.getElementById('code').value=''; document.getElementById('item').value=''; document.getElementById('qty').value=1;
+});
+
+document.getElementById('exportCsv').addEventListener('click', ()=>{
+  const entries = loadEntries();
+  if(entries.length===0){ alert('No data to export'); return; }
+  const header = ['id','code','item','date','qty','type'];
+  const rows = [header.join(',')].concat(entries.map(e=>[e.id, e.code, e.item, e.date, e.qty, e.type].map(csvEscape).join(',')));
+  const blob = new Blob([rows.join('\n')], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download='stock_entries.csv'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+function csvEscape(s){ if(s==null) return ''; return '"'+String(s).replaceAll('"','""')+'"'; }
+
+document.getElementById('importFile').addEventListener('change', (ev)=>{
+  const f = ev.target.files[0];
+  if(!f) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const text = e.target.result;
+    const lines = text.split(/\r?\n/).filter(Boolean);
+    const arr = [];
+    // assume header present
+    for(let i=1;i<lines.length;i++){
+      const cols = parseCsvLine(lines[i]);
+      if(cols.length<6) continue;
+      arr.push({id:cols[0]||uid(), code:cols[1], item:cols[2], date:cols[3], qty: Number(cols[4]||0), type:cols[5]});
+    }
+    const existing = loadEntries();
+    const merged = existing.concat(arr);
+    saveEntries(merged);
+    render();
+    alert('Imported '+arr.length+' rows');
+  };
+  reader.readAsText(f);
+  ev.target.value = '';
+});
+
+function parseCsvLine(line){
+  // basic CSV parser for quoted values
+  const out=[]; let cur=''; let inq=false;
+  for(let i=0;i<line.length;i++){
+    const ch=line[i];
+    if(inq){
+      if(ch==='"'){
+        if(line[i+1]==='"'){ cur+= '"'; i++; } else { inq=false; }
+      } else cur+=ch;
+    } else {
+      if(ch===','){ out.push(cur); cur=''; }
+      else if(ch==='"'){ inq=true; }
+      else cur+=ch;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+
+document.getElementById('resetAll').addEventListener('click', ()=>{
+  if(confirm('Delete all stored entries? This cannot be undone.')){ localStorage.removeItem(STORAGE_KEY); render(); }
+});
+
+window.addEventListener('load', ()=>{
+  // set default date to today
+  document.getElementById('date').value = new Date().toISOString().slice(0,10);
+  render();
+});
+</script>
+</body>
+</html>
